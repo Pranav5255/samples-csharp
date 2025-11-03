@@ -184,7 +184,7 @@ Always use `sudo -E env "PATH=$PATH"` with Keploy commands to preserve environme
 
 # CRUD app using MongoDB
 
-This repository contains a sample .NET 7 Web API that uses MongoDB for CRUD operations and integrates with [Keploy](https://keploy.io) to auto-generate and run test cases by recording real API traffic.
+This repository contains a sample .NET 8 Web API that uses MongoDB for CRUD operations and integrates with [Keploy](https://keploy.io) to auto-generate and run test cases by recording real API traffic.
 
 ---
 
@@ -200,57 +200,212 @@ This repository contains a sample .NET 7 Web API that uses MongoDB for CRUD oper
 
 ### 1. Clone the Repository
 
-``` bash
+```bash
 git clone https://github.com/Pranav5255/samples-mongodb.git
 cd samples-mongodb
 ```
 
-### 2. Configure MongoDB
-Update `appsettings.json` with your MongoDB connection string: 
+### 2. Install Prerequisites
 
-``` json
+#### Install .NET 8 SDK and Runtime
+
+```bash
+# Download and install Microsoft repository configuration
+wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+rm packages-microsoft-prod.deb
+
+# Update package lists
+sudo apt-get update
+
+# Install .NET 8 Runtime and SDK
+sudo apt-get install -y dotnet-runtime-8.0 aspnetcore-runtime-8.0 dotnet-sdk-8.0
+
+# Verify installation
+dotnet --version
+```
+
+#### Install MongoDB
+
+```bash
+# Import MongoDB public GPG key
+wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | sudo apt-key add -
+
+# Create list file for MongoDB
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+
+# Update package database
+sudo apt-get update
+
+# Install MongoDB
+sudo apt-get install -y mongodb-org
+
+# Start MongoDB
+sudo systemctl start mongod
+
+# Enable MongoDB to start on boot
+sudo systemctl enable mongod
+
+# Verify MongoDB is running
+sudo systemctl status mongod
+```
+
+### 3. Configure MongoDB
+
+Update `appsettings.json` with your MongoDB connection string:
+
+```json
 {
-  "ConnectionString": "mongodb://localhost:27017",
-  "DatabaseName": "UserDb",
-  "UsersCollectionName": "Users"
+  "MongoDBSettings": {
+    "ConnectionString": "mongodb://localhost:27017",
+    "DatabaseName": "UserDb",
+    "UsersCollectionName": "Users"
+  }
 }
 ```
-### 3. Run the .NET App
-``` bash
+
+### 4. Run the .NET App
+
+```bash
 dotnet run
 ```
 
 App runs by default at:
-``` arduino
+
+```
 http://localhost:5067
 ```
 
 You can test endpoints like:
-``` http
+
+```http
 GET    /users
 POST   /users
 GET    /users/{id}
+PUT    /users/{id}
+DELETE /users/{id}
 ```
 
+#### Test with cURL
+
+```bash
+# Create a user
+curl -X POST "http://localhost:5067/users" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Pranav","age":24}'
+
+# Get all users
+curl http://localhost:5067/users
+```
+
+---
+
 ## 🐾 Generate Test Cases with Keploy
-### 1. Download Keploy
-``` powershell
-curl -O -L https://keploy.io/install.sh && source install.sh
+
+### 1. Install Keploy
+
+```bash
+# Download Keploy binary
+curl -L https://github.com/keploy/keploy/releases/latest/download/keploy_linux_amd64.tar.gz -o keploy.tar.gz
+
+# Extract it
+tar -xzf keploy.tar.gz
+
+# Move to /usr/local/bin
+sudo mv keploy /usr/local/bin/
+
+# Make it executable
+sudo chmod +x /usr/local/bin/keploy
+
+# Clean up
+rm keploy.tar.gz
+
+# Verify installation
+keploy version
 ```
 
 ### 2. Record API Calls
-``` bash
-keploy.exe record --proxy-port 8080 --app-port 5067 --path ./keploy-tests
+
+**Important:** Keploy requires elevated permissions to use eBPF for intercepting network calls. You must run it with `sudo`:
+
+```bash
+sudo -E env "PATH=$PATH" keploy record -c "dotnet run" --proxy-port 8080 --path ./keploy-tests
 ```
 
-Now send traffic to:
-``` bash
-http://localhost:8080/users
-```
-Use Postman, Swagger or cURL to generate traffic.
+The application will start and Keploy will begin recording. Keep this terminal running.
 
 ### 3. Replay Tests
 After Recording:
 ``` bash
 keploy.exe test --path ./keploy-tests
 ```
+
+### 3. Generate Traffic
+
+Open a **new terminal** and send traffic to your application:
+
+```bash
+# Create a user
+curl -X POST "http://localhost:5067/users" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"John","age":30}'
+
+# Get all users
+curl http://localhost:5067/users
+
+# Get user by ID (replace {id} with actual ID from response)
+curl http://localhost:5067/users/{id}
+```
+
+Keploy will automatically capture these requests and responses as test cases in the `./keploy-tests` directory.
+
+### 4. Stop Recording
+
+Press `Ctrl+C` in the terminal where Keploy is running to stop recording.
+
+### 5. Replay Tests
+
+After recording, replay the captured test cases:
+
+```bash
+sudo -E env "PATH=$PATH" keploy test -c "dotnet run" --path ./keploy-tests --delay 10
+```
+
+The `--delay 10` flag gives the .NET application 10 seconds to start before running tests.
+
+---
+
+## 📝 Notes
+
+- **Sudo Required**: Keploy uses eBPF (extended Berkeley Packet Filter) to intercept network traffic, which requires root privileges. Always run `keploy` commands with `sudo -E env "PATH=$PATH"` to preserve your environment variables.
+
+- **Port Already in Use**: If you get an "address already in use" error, kill any existing dotnet processes:
+  ```bash
+  pkill -9 dotnet
+  ```
+
+- **MongoDB Connection**: Ensure MongoDB is running before starting the application:
+  ```bash
+  sudo systemctl status mongod
+  ```
+
+---
+
+## 🔗 Resources
+
+- [Keploy Documentation](https://keploy.io/docs)
+- [.NET 8 Documentation](https://learn.microsoft.com/en-us/dotnet/core/whats-new/dotnet-8)
+- [MongoDB .NET Driver](https://www.mongodb.com/docs/drivers/csharp/)
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
