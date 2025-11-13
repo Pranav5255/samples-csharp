@@ -84,7 +84,7 @@ Update `appsettings.json` with your MongoDB connection string (default configura
 ## Running in Record Mode
 
 ```bash
-sudo -E env "PATH=$PATH" keploy record -c "dotnet run" --proxy-port 8080 --path ./keploy-tests
+sudo -E env "PATH=$PATH" keploy record   -c "dotnet run --urls=http://0.0.0.0:5001"   --proxy-port 8080   --path ./keploy-tests
 ```
 
 **Note:** Keploy requires elevated permissions (sudo) to use eBPF for intercepting network calls.
@@ -131,7 +131,10 @@ Press `Ctrl+C` in the terminal where Keploy is running to stop recording.
 Now let's run Keploy in test mode:
 
 ```bash
-sudo -E env "PATH=$PATH" keploy test -c "dotnet run" --path ./keploy-tests --delay 10
+sudo -E env "PATH=$PATH" keploy test \
+  -c "dotnet run --urls=http://0.0.0.0:5001" \
+  --path ./keploy-tests \
+  --delay 10
 ```
 
 The `--delay 10` flag gives the .NET application 10 seconds to start before running tests.
