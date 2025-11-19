@@ -120,7 +120,6 @@ curl -X DELETE http://localhost:5067/api/users/{id}
 ```
 
 And voila, we have our test cases generated in the `./keploy-tests` directory!
-![Testcases](./img/photo1.png)
 
 ### Stop Recording
 
@@ -140,8 +139,6 @@ sudo -E env "PATH=$PATH" keploy test \
 The `--delay 10` flag gives the .NET application 10 seconds to start before running tests.
 
 Keploy will replay all recorded test cases and generate a test report in the `keploy-tests/reports` directory.
-
-![Testcases](./img/photo2.png)
 
 
 
